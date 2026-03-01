@@ -93,6 +93,57 @@ class TestSearch:
         assert len(results) == 1
         assert results[0].name == "ソニーグループ株式会社"
 
+    def test_search_nfkc_halfwidth(self, registry: CompanyRegistry) -> None:
+        """Half-width katakana should match full-width."""
+        results = registry.search("ﾄﾖﾀ")
+        assert len(results) == 1
+        assert results[0].edinet_code == "E02144"
+
+    def test_search_multi_token(self, registry: CompanyRegistry) -> None:
+        """Space-separated tokens should AND match."""
+        results = registry.search("トヨタ 自動車")
+        assert len(results) == 1
+        assert results[0].edinet_code == "E02144"
+
+    def test_search_multi_token_no_match(self, registry: CompanyRegistry) -> None:
+        """Multi-token where one token doesn't match returns nothing."""
+        results = registry.search("トヨタ 電気")
+        assert len(results) == 0
+
+    def test_search_ranking_exact_over_contains(self) -> None:
+        """Exact name match should rank higher than partial match."""
+        companies = [
+            Company(edinet_code="E00001", name="ABC株式会社", is_listed=True),
+            Company(edinet_code="E00002", name="ABC", is_listed=True),
+        ]
+        r = CompanyRegistry.from_companies(companies)
+        results = r.search("abc")
+        assert len(results) == 2
+        # Exact match should be first
+        assert results[0].edinet_code == "E00002"
+
+    def test_search_ranking_prefix_over_contains(self) -> None:
+        """Prefix match should rank higher than contains match."""
+        companies = [
+            Company(edinet_code="E00001", name="XXXソニーXXX", is_listed=True),
+            Company(edinet_code="E00002", name="ソニーXXX", is_listed=True),
+        ]
+        r = CompanyRegistry.from_companies(companies)
+        results = r.search("ソニー")
+        assert len(results) == 2
+        assert results[0].edinet_code == "E00002"  # prefix
+
+    def test_search_empty_query(self, registry: CompanyRegistry) -> None:
+        """Empty query returns nothing."""
+        results = registry.search("")
+        assert len(results) == 0
+
+    def test_search_fullwidth_alpha(self, registry: CompanyRegistry) -> None:
+        """Full-width 'ＳＯＮＹ' should match 'Sony'."""
+        results = registry.search("ＳＯＮＹ")
+        assert len(results) == 1
+        assert results[0].edinet_code == "E01777"
+
 
 class TestRegistryMeta:
     def test_len(self, registry: CompanyRegistry) -> None:

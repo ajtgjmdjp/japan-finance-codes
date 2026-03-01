@@ -2,8 +2,15 @@
 
 from __future__ import annotations
 
+import unicodedata
+
 from edinet_mcp import EdinetClient
 from edinet_mcp.models import Company
+
+# Match-quality scores (higher = better match)
+_SCORE_EXACT = 3
+_SCORE_PREFIX = 2
+_SCORE_CONTAINS = 1
 
 
 class CompanyRegistry:
@@ -69,22 +76,65 @@ class CompanyRegistry:
         """Look up by 13-digit corporate number / 法人番号."""
         return self._by_corporate_number.get(corporate_number)
 
-    def search(self, query: str, *, limit: int = 10) -> list[Company]:
-        """Search companies by name (substring match).
+    @staticmethod
+    def _normalize(text: str) -> str:
+        """Normalize text for fuzzy matching.
 
-        Matches against both Japanese and English names.
-        Returns up to *limit* results.
+        Applies NFKC normalization (full-width → half-width, etc.)
+        and lowercases for case-insensitive comparison.
         """
-        query_lower = query.lower()
-        results: list[Company] = []
+        return unicodedata.normalize("NFKC", text).lower()
+
+    def _score_match(self, name: str, tokens: list[str]) -> int:
+        """Score how well *name* matches the search tokens.
+
+        Returns 0 for no match. Higher is better.
+        """
+        normalized = self._normalize(name)
+        # All tokens must appear in the name
+        for token in tokens:
+            if token not in normalized:
+                return 0
+
+        # Single-token scoring: exact > prefix > contains
+        if len(tokens) == 1:
+            token = tokens[0]
+            if normalized == token:
+                return _SCORE_EXACT
+            if normalized.startswith(token):
+                return _SCORE_PREFIX
+            return _SCORE_CONTAINS
+
+        # Multi-token: all matched → contains-level
+        return _SCORE_CONTAINS
+
+    def search(self, query: str, *, limit: int = 10) -> list[Company]:
+        """Search companies by name with ranked fuzzy matching.
+
+        Features:
+        - NFKC normalization (full-width/half-width unification)
+        - Score-based ranking: exact > prefix > contains
+        - Multi-token AND search (space-separated)
+        - Matches against both Japanese and English names.
+
+        Returns up to *limit* results, best matches first.
+        """
+        normalized_query = self._normalize(query)
+        tokens = normalized_query.split()
+        if not tokens:
+            return []
+
+        scored: list[tuple[int, Company]] = []
         for c in self._companies:
-            if query_lower in c.name.lower():
-                results.append(c)
-            elif c.name_en and query_lower in c.name_en.lower():
-                results.append(c)
-            if len(results) >= limit:
-                break
-        return results
+            best = self._score_match(c.name, tokens)
+            if c.name_en:
+                best = max(best, self._score_match(c.name_en, tokens))
+            if best > 0:
+                scored.append((best, c))
+
+        # Sort by score descending, then by name for stability
+        scored.sort(key=lambda pair: (-pair[0], pair[1].name))
+        return [c for _, c in scored[:limit]]
 
     def resolve(self, identifier: str) -> Company | None:
         """Auto-detect identifier type and look up.

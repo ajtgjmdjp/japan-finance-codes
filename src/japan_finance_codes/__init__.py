@@ -13,4 +13,4 @@ Quick start::
 from japan_finance_codes._registry import CompanyRegistry
 
 __all__ = ["CompanyRegistry"]
-__version__ = "0.1.0"
+__version__ = "0.1.1"
