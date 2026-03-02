@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from edinet_mcp.models import Company
-
 from japan_finance_codes import CompanyRegistry
+from japan_finance_codes._registry import _CompanyRecord
 
 
 class TestLookup:
@@ -113,8 +112,8 @@ class TestSearch:
     def test_search_ranking_exact_over_contains(self) -> None:
         """Exact name match should rank higher than partial match."""
         companies = [
-            Company(edinet_code="E00001", name="ABC株式会社", is_listed=True),
-            Company(edinet_code="E00002", name="ABC", is_listed=True),
+            _CompanyRecord(edinet_code="E00001", name="ABC株式会社", is_listed=True),
+            _CompanyRecord(edinet_code="E00002", name="ABC", is_listed=True),
         ]
         r = CompanyRegistry.from_companies(companies)
         results = r.search("abc")
@@ -125,8 +124,8 @@ class TestSearch:
     def test_search_ranking_prefix_over_contains(self) -> None:
         """Prefix match should rank higher than contains match."""
         companies = [
-            Company(edinet_code="E00001", name="XXXソニーXXX", is_listed=True),
-            Company(edinet_code="E00002", name="ソニーXXX", is_listed=True),
+            _CompanyRecord(edinet_code="E00001", name="XXXソニーXXX", is_listed=True),
+            _CompanyRecord(edinet_code="E00002", name="ソニーXXX", is_listed=True),
         ]
         r = CompanyRegistry.from_companies(companies)
         results = r.search("ソニー")
@@ -156,7 +155,7 @@ class TestRegistryMeta:
     def test_companies_property(self, registry: CompanyRegistry) -> None:
         assert len(registry.companies) == 3
 
-    def test_from_companies(self, sample_companies: list[Company]) -> None:
+    def test_from_companies(self, sample_companies: list[_CompanyRecord]) -> None:
         r = CompanyRegistry.from_companies(sample_companies)
         assert len(r) == 3
 
