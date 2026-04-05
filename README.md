@@ -1,5 +1,8 @@
 # japan-finance-codes
 
+> **Status: Maintenance mode** — This project is stable and functional but not actively developed. Issues and PRs are welcome.
+
+
 Unified company ID registry for Japanese financial data.
 
 Maps between EDINET codes, securities codes (4/5-digit), corporate numbers (法人番号), and yfinance tickers.
